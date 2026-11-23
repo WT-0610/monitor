@@ -1,0 +1,14 @@
+/data/
+/release/
+/build/
+/dist/
+*.spec
+**/__pycache__/
+*.pyc
+*.db*
+*.log
+*.bak*
+backend/config.json
+x-monitor/dist/
+x-monitor/node_modules/
+x-monitor/public/

@@ -1,0 +1,93 @@
+name: Build desktop releases
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            suffix: windows-x64
+          - os: macos-15-intel
+            suffix: macos-intel
+          - os: macos-15
+            suffix: macos-apple-silicon
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = macOS ] && [ "$(uname -m)" = x86_64 ]; then
+            grep -v '^onnxruntime' backend/requirements.txt > requirements-intel.txt
+            python -m pip install -r requirements-intel.txt
+          else
+            python -m pip install -r backend/requirements.txt
+          fi
+          python -m pip install pyinstaller==6.22.3
+      - name: Build and check private data
+        run: python build_release.py
+      - name: Test first launch
+        shell: pwsh
+        run: |
+          $env:ORANGE_MONITOR_HOME = Join-Path $env:RUNNER_TEMP 'monitor-first-run'
+          if ($IsWindows) { $exe = 'dist/OrangeMonitor/OrangeMonitor.exe' }
+          else { $exe = 'dist/OrangeMonitor.app/Contents/MacOS/OrangeMonitor' }
+          $proc = Start-Process -FilePath $exe -ArgumentList '--no-autostart' -PassThru
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              Start-Sleep -Seconds 1
+              try {
+                $health = Invoke-WebRequest 'http://127.0.0.1:8788/api/health' -NoProxy -TimeoutSec 2
+                if ($health.StatusCode -eq 200) { $ready = $true; break }
+              } catch { }
+              if ($proc.HasExited) { break }
+            }
+            if (-not $ready) { throw 'First launch did not become healthy' }
+            $cfg = Get-Content (Join-Path $env:ORANGE_MONITOR_HOME 'config.json') -Raw | ConvertFrom-Json
+            if ($cfg.cookie -or $cfg.x_cookie -or $cfg.accounts.Count -ne 0) { throw 'First launch contains account data' }
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          }
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/OrangeMonitor -DestinationPath OrangeMonitor-${{ matrix.suffix }}.zip
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent dist/OrangeMonitor.app OrangeMonitor-${{ matrix.suffix }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OrangeMonitor-${{ matrix.suffix }}
+          path: OrangeMonitor-${{ matrix.suffix }}.zip
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: OrangeMonitor-*
+          merge-multiple: true
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" OrangeMonitor-*.zip --repo "${GITHUB_REPOSITORY}" --title "OrangeMonitor ${GITHUB_REF_NAME}" --generate-notes

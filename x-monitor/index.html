@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>桔子监控台</title>
+    <script>
+      // 首屏就定好主题，避免先画深色再跳成白色（或反过来）的闪一下
+      (function () {
+        var t = "dark";
+        try {
+          var saved = localStorage.getItem("ui.theme");
+          var m = /[?&]theme=(light|dark)/.exec(location.search);
+          if (m) t = m[1];
+          else if (saved === "light" || saved === "dark") t = saved;
+        } catch (e) {}
+        document.documentElement.dataset.theme = t;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
