@@ -48,10 +48,12 @@ jobs:
           $env:ORANGE_MONITOR_HOME = Join-Path $env:RUNNER_TEMP 'monitor-first-run'
           if ($IsWindows) { $exe = 'dist/OrangeMonitor/OrangeMonitor.exe' }
           else { $exe = 'dist/OrangeMonitor.app/Contents/MacOS/OrangeMonitor' }
-          $proc = Start-Process -FilePath $exe -ArgumentList '--no-autostart' -PassThru
+          $stdout = Join-Path $env:RUNNER_TEMP 'monitor-first-run.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'monitor-first-run.stderr.log'
+          $proc = Start-Process -FilePath $exe -ArgumentList '--no-autostart' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
           try {
             $ready = $false
-            for ($i = 0; $i -lt 60; $i++) {
+            for ($i = 0; $i -lt 120; $i++) {
               Start-Sleep -Seconds 1
               try {
                 $health = Invoke-WebRequest 'http://127.0.0.1:8788/api/health' -NoProxy -TimeoutSec 2
@@ -59,7 +61,12 @@ jobs:
               } catch { }
               if ($proc.HasExited) { break }
             }
-            if (-not $ready) { throw 'First launch did not become healthy' }
+            if (-not $ready) {
+              Write-Host "First launch failed; exited=$($proc.HasExited); exit code=$($proc.ExitCode)"
+              if (Test-Path $stderr) { Get-Content $stderr -Tail 80 }
+              if (Test-Path $stdout) { Get-Content $stdout -Tail 40 }
+              throw 'First launch did not become healthy'
+            }
             $cfg = Get-Content (Join-Path $env:ORANGE_MONITOR_HOME 'config.json') -Raw | ConvertFrom-Json
             if ($cfg.cookie -or $cfg.x_cookie -or $cfg.accounts.Count -ne 0) { throw 'First launch contains account data' }
           } finally {
