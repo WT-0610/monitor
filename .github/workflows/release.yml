@@ -34,8 +34,12 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = macOS ] && [ "$(uname -m)" = x86_64 ]; then
+            # Intel macOS builds cryptography from source. Link its OpenSSL statically
+            # so PyInstaller cannot load the older libssl bundled with Python.
+            export OPENSSL_DIR="$(brew --prefix openssl@3)"
+            export OPENSSL_STATIC=1
             grep -v '^onnxruntime' backend/requirements.txt > requirements-intel.txt
-            python -m pip install -r requirements-intel.txt
+            python -m pip install --no-cache-dir -r requirements-intel.txt
           else
             python -m pip install -r backend/requirements.txt
           fi
