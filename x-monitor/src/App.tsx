@@ -87,6 +87,9 @@ export default function App() {
     return localStorage.getItem("archive.view") === "list" ? "list" : "waterfall";
   });
   const [archiveFilters, setArchiveFilters] = useState<ArchiveFilters>(emptyArchiveFilters);
+  const [flowVisited, setFlowVisited] = useState(page === "flow");
+  const [flowRevision, setFlowRevision] = useState(0);
+  useEffect(() => { if (page === "flow") setFlowVisited(true); }, [page]);
   const changeFlowView = (view: "waterfall" | "list") => {
     setFlowView(view);
     localStorage.setItem("archive.view", view);
@@ -535,8 +538,11 @@ export default function App() {
               }}
             />
           )}
-          {page === "flow" && flowView === "waterfall" && (
+          {(flowVisited || page === "flow") && (
+            <div key={flowRevision} style={{ display: page === "flow" ? undefined : "none" }}>
+          {flowView === "waterfall" && (
             <ContentFlow
+              active={page === "flow"}
               accounts={accounts}
               platform={platform}
               platformLabel={PLATFORM_LABEL}
@@ -561,10 +567,12 @@ export default function App() {
               }}
             />
           )}
-          {page === "flow" && flowView === "list" && (
+          {flowView === "list" && (
             <QueryPage platform={platform} platformLabel={PLATFORM_LABEL} accounts={accounts}
               archiveFilters={archiveFilters} onArchiveFilters={setArchiveFilters}
               view={flowView} onViewChange={changeFlowView} />
+          )}
+            </div>
           )}
           {page === "media" && (
             <MediaBrowser
@@ -573,6 +581,7 @@ export default function App() {
               platformLabel={PLATFORM_LABEL}
               onOpenPost={openMediaPost}
               onPostDeleted={(item) => {
+                setFlowRevision((n) => n + 1);
                 setPosts((l) => l.filter((x) => x.id !== item.postId || x.platform !== item.platform));
                 setTombs((n) => n + 1);
                 void refreshFavorites();
@@ -584,6 +593,7 @@ export default function App() {
           )}
           {page === "xdownload" && <XLinkDownload />}
           {page === "cleanup" && <CleanupPage onToast={toast} onChanged={() => {
+            setFlowRevision((n) => n + 1);
             void api.trashCount().then(setTombs).catch(() => {});
             void refresh().catch(() => {});
             void refreshFavorites();

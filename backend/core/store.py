@@ -86,6 +86,7 @@ CREATE INDEX IF NOT EXISTS idx_traffic_day ON traffic(day);
 
 # 依赖新列的索引，必须在补列之后再建（否则旧库会报 no such column）
 _INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_posts_feed_created ON posts(created_ts, mblog_id, platform);
 -- 旧的二元索引换三元（游标要按 (排序值, mblog_id) 走），建新删旧避免冗余
 CREATE INDEX IF NOT EXISTS idx_posts_reposts_id ON posts(platform, reposts_count, mblog_id);
 CREATE INDEX IF NOT EXISTS idx_posts_attitudes_id ON posts(platform, attitudes_count, mblog_id);

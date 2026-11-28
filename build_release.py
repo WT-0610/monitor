@@ -50,6 +50,8 @@ def main() -> None:
     ]
     if not (sys.platform == "darwin" and platform.machine() == "x86_64"):
         args.extend(["--collect-all", "onnxruntime"])
+    if os.name == "nt":
+        args.extend(["--collect-all", "webview", "--add-data", "desktop_titlebar.js:."])
     args.append("desktop_launcher.py")
     subprocess.run(args, cwd=ROOT, check=True)
 

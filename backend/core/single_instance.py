@@ -52,6 +52,7 @@ FRONTEND_HOST_PROCS = (
     "msedge.exe",
     "chrome.exe",
     "msedgewebview2.exe",
+    "orangemonitor.exe",
     "firefox.exe",
     "weibo_monitor.exe",       # Tauri 打包版（WebView2 壳）
     "weibo_monitor_app.exe",

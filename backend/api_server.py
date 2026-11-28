@@ -508,7 +508,11 @@ class ApiContext:
 
     def accounts(self, platform: Optional[str] = None) -> List[Dict[str, Any]]:
         store = self.monitor.store.for_platform(platform)
-        states = {s["uid"]: s for s in store.list_states()}
+        states = {(s["platform"], str(s["uid"])): s for s in store.list_states()}
+        with store._connect() as conn:
+            counts = {(r["platform"], str(r["uid"])): int(r["c"]) for r in conn.execute(
+                "SELECT platform, uid, COUNT(*) AS c FROM posts GROUP BY platform, uid"
+            )}
         with store._connect() as conn:
             sizes = {(r["platform"], str(r["uid"])): int(r["bytes"] or 0) for r in conn.execute(
                 "SELECT p.platform, p.uid, SUM(COALESCE(m.size,0)) AS bytes "
@@ -518,7 +522,8 @@ class ApiContext:
         out: List[Dict[str, Any]] = []
         for acc in self._cfg_accounts(platform):
             uid = str(acc["uid"])
-            st = states.get(uid, {})
+            key = (acc.get("platform") or DEFAULT_PLATFORM, uid)
+            st = states.get(key, {})
             out.append({
                 "uid": uid,
                 "platform": acc.get("platform") or DEFAULT_PLATFORM,
@@ -532,7 +537,7 @@ class ApiContext:
                 "since_id": st.get("since_id") or "",
                 "last_check": st.get("last_check") or "",
                 "last_error": st.get("last_error") or "",
-                "archived": int(store.count_posts(uid)),
+                "archived": counts.get(key, 0),
                 "storage_bytes": sizes.get((acc.get("platform") or DEFAULT_PLATFORM, uid), 0),
                 "total": int(st.get("total") or 0),
             })
@@ -2027,9 +2032,11 @@ class Handler(BaseHTTPRequestHandler):
             offset=(page - 1) * limit if cursor is None else 0,
             sort=sort, desc=desc, media_kind=q.get("media") or "",
         )
-        notes = {a["uid"]: a["name"] for a in ctx.accounts()}
+        notes = {((a.get("platform") or DEFAULT_PLATFORM), str(a["uid"])): a.get("name") or str(a["uid"])
+                 for a in ctx._cfg_accounts()}
         for row in chunk:
-            row["account_note"] = notes.get(str(row.get("uid")), row.get("screen_name") or "")
+            key = (row.get("platform") or DEFAULT_PLATFORM, str(row.get("uid")))
+            row["account_note"] = notes.get(key, row.get("screen_name") or "")
             row["is_new"] = self._is_new(row)
         # 下一页游标：拿当页最后一条的 (排序值, mblog_id, platform)。
         # 注意 0 是合法游标值（created_ts=0 的老数据），不能用 `or ''` 吞掉 falsy
@@ -2973,6 +2980,19 @@ def open_app_window(url: str, plain_browser: bool = False) -> None:
     try:
         if focus_existing(browser_only=True):
             return
+        if not plain_browser and sys.platform == "win32" and getattr(sys, "frozen", False):
+            try:
+                child = subprocess.Popen([sys.executable, "--desktop-window", url])
+                for _ in range(30):
+                    if find_windows(browser_only=True):
+                        return
+                    if child.poll() is not None:
+                        break
+                    time.sleep(0.25)
+                if child.poll() is None:
+                    return
+            except OSError:
+                pass
         if not plain_browser:
             exe = _find_chromium()
             if exe:
@@ -3111,6 +3131,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-

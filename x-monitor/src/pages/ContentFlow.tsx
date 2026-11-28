@@ -92,9 +92,9 @@ const postKey = (p: Post) => `${p.platform}-${p.id}`;
  * 3. **刷新不打断阅读**：后台只探测新增，用户点击提示后才加载。
  */
 export function ContentFlow({
-  accounts, platform, platformLabel, archiveFilters, onArchiveFilters, view, onViewChange, busy, paused, focusAccount, focusPostId, onClearFocusedPost, egress,
+  active = true, accounts, platform, platformLabel, archiveFilters, onArchiveFilters, view, onViewChange, busy, paused, focusAccount, focusPostId, onClearFocusedPost, egress,
   onRunAll, onToast, onDeleted, favorites, onToggleFavorite,
-}: Props) {
+}: Props & { active?: boolean }) {
   const [who, setWho] = useState<string>(focusAccount ?? (archiveFilters.uid || "all"));
   const selectedAccount = who === "all" ? null : accounts.find((a) => a.id === who && (platform === "all" || a.platform === platform)) || null;
   const [accountProfile, setAccountProfile] = useState<{ name: string; handle: string; bio: string } | null>(null);
@@ -373,7 +373,7 @@ export function ContentFlow({
   tickRef.current = { posts, who, kw, mediaKind, loading, zooming: !!zoom };
 
   useEffect(() => {
-    if (!canProbeHead || archiveFilters.start || archiveFilters.end || archiveFilters.kind || mediaKind === "both" || mediaKind === "none" || ["storage_bytes", "pic_count", "video_count"].includes(sort)) return;
+    if (!active || !canProbeHead || archiveFilters.start || archiveFilters.end || archiveFilters.kind || mediaKind === "both" || mediaKind === "none" || ["storage_bytes", "pic_count", "video_count"].includes(sort)) return;
     const timer = window.setInterval(async () => {
       const s = tickRef.current;
       if (document.hidden || s.zooming || s.loading) return;
@@ -401,7 +401,7 @@ export function ContentFlow({
       }
     }, 30_000);
     return () => window.clearInterval(timer);
-  }, [canProbeHead, platform, mediaKind, sort, desc, archiveFilters.start, archiveFilters.end, archiveFilters.kind]);
+  }, [active, canProbeHead, platform, mediaKind, sort, desc, archiveFilters.start, archiveFilters.end, archiveFilters.kind]);
 
   const applyPending = () => {
     setPending(0);
