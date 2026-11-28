@@ -1150,12 +1150,7 @@ export function SettingsPage({
 
       <Panel title="关于">
         <div className="set-group">
-          <Row label="版本">
-            <span className="pill">0.1.0-preview · Tauri 壳未编译</span>
-          </Row>
-          <Row label="配置文件" desc="所有设置都在这里，改坏了可以删掉重生成">
-            <span className="pill">backend/config.json</span>
-          </Row>
+          <Row label="应用"><span>桔子监控台</span></Row>
         </div>
       </Panel>
       <Panel title="在线更新"><UpdatePanel /></Panel>

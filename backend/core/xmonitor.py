@@ -72,6 +72,7 @@ class XMonitor:
         self.text_skipped = 0
         # 多个监控账号转了同一条原推时，被跳过的那几条（只留最早一份）
         self.dup_skipped = 0
+        self.last_round = (0.0, 0)
         self.last_tick = 0.0
         self.last_node_id = ""          # 最近一次真正用过的节点（状态栏显示）
         self._clients: Dict[str, XClient] = {}
@@ -305,6 +306,7 @@ class XMonitor:
         self.check_count += 1
         self.new_count += total_new
         self.last_tick = time.time()
+        self.last_round = (self.last_tick, total_new)
         if self.cfg.get("heartbeat_log", True):
             dups = self.dup_skipped - dups_before
             dup_tail = f"（跳过 {dups} 条重复转推）" if dups else ""

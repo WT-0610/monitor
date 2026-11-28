@@ -4,7 +4,7 @@
     if (!bar || bar.querySelector(".preview-window-buttons")) return;
 
     const drag = document.createElement("div");
-    drag.className = "preview-window-drag pywebview-drag-region";
+    drag.className = "preview-window-drag";
     const controls = document.createElement("div");
     controls.className = "preview-window-buttons";
     let maximized = false;
@@ -32,7 +32,29 @@
       maximize.setAttribute("aria-label", maximize.title);
     }
 
-    drag.addEventListener("dblclick", toggleMaximize);
+    let origin;
+    const canDrag = (event) => !event.target.closest("button, a, input, select, textarea");
+    const brand = document.querySelector(".sidebar .brand");
+    for (const area of [bar, brand]) {
+      if (!area) continue;
+      area.addEventListener("pointerdown", (event) => {
+        if (event.button === 0 && canDrag(event)) origin = [event.clientX, event.clientY];
+      });
+      area.addEventListener("pointermove", (event) => {
+        if (!origin || !(event.buttons & 1)) {
+          origin = undefined;
+          return;
+        }
+        if (Math.hypot(event.clientX - origin[0], event.clientY - origin[1]) < 4) return;
+        origin = undefined;
+        void window.pywebview.api.drag_window().catch(console.error);
+      });
+      area.addEventListener("pointerup", () => { origin = undefined; });
+      area.addEventListener("pointerleave", () => { origin = undefined; });
+      area.addEventListener("dblclick", (event) => {
+        if (canDrag(event)) void toggleMaximize();
+      });
+    }
     bar.querySelector(".topbar-monitor")?.before(drag);
     bar.append(controls);
   }
@@ -40,6 +62,7 @@
   const css = document.createElement("style");
   css.textContent = `
     html, body { background-color: var(--surface-2, #f5f5f6); }
+    .topbar, .sidebar .brand { user-select: none; }
     .preview-window-drag { align-self: stretch; flex: 1; min-width: 36px; }
     .preview-window-buttons { display: flex; align-self: stretch; margin-left: 12px; }
     .preview-window-buttons button {

@@ -519,6 +519,8 @@ export default function App() {
         <main className="content" ref={contentRef} onScroll={(event) => setShowBackToTop(event.currentTarget.scrollTop > 360)}>
           {page === "overview" && (
             <Overview
+              rounds={server?.rounds}
+              running={{ weibo: server?.weibo_running, x: server?.x_running }}
               accounts={accounts}
               posts={posts}
               stats={stats}
@@ -531,7 +533,6 @@ export default function App() {
               tombs={tombs}
               busy={busy}
               onGoto={navigate}
-              onRunOne={runOne}
               onOpenTrash={() => {
                 navigate("settings");
                 window.history.replaceState(null, "", `#settings?pt=${platform}&tab=trash`);

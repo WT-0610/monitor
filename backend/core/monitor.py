@@ -91,6 +91,7 @@ class Monitor:
         self.vip_skipped = 0
         # 纯文本帖被跳过的条数（archive_text_only=False 时才会涨）。
         self.text_skipped = 0
+        self.last_round = (0.0, 0)
         self.last_tick = 0.0
 
         self.summaries_dir = os.path.join(self.output_dir, "summaries")
@@ -212,6 +213,7 @@ class Monitor:
         self.check_count += 1
         self.new_count += total_new
         self.last_tick = time.time()
+        self.last_round = (self.last_tick, total_new)
         self._maybe_summarize()
         if cookie_expired:
             self.log("WARNING", "微博登录已失效，本轮停止检查其他账号；等待自动更新或重新登录")

@@ -389,6 +389,7 @@ class ApiContext:
             "text_skipped": getattr(m, "text_skipped", 0)
             + (getattr(xmon, "text_skipped", 0) if xmon else 0),
             "last_tick": m.last_tick,
+            "rounds": {"weibo": m.last_round, "x": xmon.last_round if xmon else (0.0, 0)},
             "stats": stats,
             "recent": {"hours": hours, "count": recent},
             "cookie_set": bool(cookie),

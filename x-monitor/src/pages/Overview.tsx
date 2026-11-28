@@ -1,6 +1,6 @@
 import type { Account, PageKey, Post, UsageSummary } from "../data/types";
-import { IconExternal, IconSearch } from "../components/Icons";
-import { BloggerName } from "../components/BloggerName";
+import { IconExternal } from "../components/Icons";
+import { fmtBytes } from "../data/format";
 import { StatsPage } from "./StatsPage";
 import { useEffect, useRef, useState } from "react";
 import type { NodeItem, Settings, StorageSummary, TrafficRow } from "../data/types";
@@ -26,8 +26,10 @@ interface Props {
   dedupSkipped: number;
   tombs: number;
   busy: boolean;
+  rounds?: Partial<Record<"weibo" | "x", [number, number]>>;
+  running: Partial<Record<"weibo" | "x", boolean>>;
   onGoto: (p: PageKey) => void;
-  onRunOne: (a: Account) => void;
+
   onOpenTrash: () => void;
 }
 
@@ -56,7 +58,7 @@ export function Overview({
   tombs,
   busy,
   onGoto,
-  onRunOne,
+  rounds, running,
   onOpenTrash,
 }: Props) {
   const [shownPosts, setShownPosts] = useState(posts);
@@ -91,133 +93,69 @@ export function Overview({
   // Only update when the parent receives a fresh list.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts]);
-  const recentByPlatform = (platform: "weibo" | "x") => [...shownPosts]
-    .filter((post) => post.platform === platform)
-    .sort((a, b) => (a.time < b.time ? 1 : -1))
-    .slice(0, 8);
-  // 列表可能跨天，非今天的行改显示日期，否则一串 22:00 / 19:34 会让人以为时间乱序
-  const today = (() => {
-    const d = new Date();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${d.getFullYear()}-${mm}-${dd}`;
-  })();
-  const accountOf = (id: string) => accounts.find((a) => a.id === id);
+  const recent = [...shownPosts].sort((a, b) => b.time.localeCompare(a.time)).slice(0, 8);
+  const names = new Map(accounts.map((a) => [a.id, a.name]));
+  const disk = storage?.disk;
+  const used = disk ? Math.max(0, disk.total - disk.free) : 0;
+  const [details, setDetails] = useState(false);
+  const number = (value: number) => value.toLocaleString("zh-CN");
 
   return (
-    <div className="page overview">
-      <div className="stat-row">
-        <div className="stat-card">
-          <div className="stat-label">归档内容</div>
-          <div className="stat-value">{stats.posts}</div>
-          <div className="stat-foot">近 24 小时新增 {stats.recent}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">图片</div>
-          <div className="stat-value">{stats.photos}</div>
-          <div className="stat-foot">已下载原图</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">视频</div>
-          <div className="stat-value">{stats.videos}</div>
-          <div className="stat-foot">含视频封面</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">监控账号</div>
-          <div className="stat-value">
-            {stats.enabled}
-            <span className="stat-slash">/{stats.total}</span>
-          </div>
-          <div className="stat-foot">启用 / 总数</div>
-        </div>
-      </div>
-
-      {pending > 0 && <button className="overview-new" onClick={() => {
-        setShownPosts(posts); setPending(0); scrollRoot.current?.scrollTo({ top: 0, behavior: "smooth" });
-      }}>有 {pending} 条新内容 · 点击查看</button>}
-      <section className="panel recent-panel">
-          <header className="panel-head">
-            <h2>最近新增</h2>
-            <span className="pill">24 小时新增 {stats.recent}</span>
-            <div className="spacer" />
-            <button className="link-btn" onClick={() => onGoto("flow")}>
-              查看全部
-            </button>
-          </header>
-
-          <div className="recent-split">
-            {(["weibo", "x"] as const).map((source) => (
-              <div className="recent-platform" key={source}>
-                <h3>{source === "weibo" ? "微博更新" : "X 更新"}</h3>
-                <div className="recent-table">
-                  <div className="rt-row head">
-                    <span>时间</span><span>账号</span><span>内容</span><span>媒体</span><span />
-                  </div>
-                  {recentByPlatform(source).map((p) => {
-                    const acc = accountOf(p.accountId);
-                    const [date, time] = p.time.split(" ");
-                    return (
-                      <div className="rt-row" key={`${p.platform}-${p.id}`}>
-                        <span className="rt-time" title={p.time}>
-                          {date === today ? time?.slice(0, 5) ?? date : date.slice(5)}
-                        </span>
-                        <span className="rt-account" title={acc?.name ?? p.screenName ?? "未知"}>
-                          <span className="mini-avatar" style={{ background: acc?.accent ?? "#8C8FA3" }}>
-                            {acc?.name.slice(0, 1) ?? "?"}
-                          </span>
-                          <span className="rt-account-name">{acc?.name ?? p.screenName ?? "未知"}</span>
-                        </span>
-                        <span className="rt-text" title={p.text}>
-                          <span className="rt-text-value">{p.text.replace(/\n/g, " ")}</span>
-                          {p.isNew && <span className="tag-mini">新</span>}
-                        </span>
-                        <span className="rt-media">{mediaLabel(p)}</span>
-                        <span className="rt-act">
-                          <a className="link-btn" href={p.url} target="_blank" rel="noreferrer noopener" aria-label="打开原帖" title="打开原帖">
-                            <IconExternal />
-                          </a>
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {recentByPlatform(source).length === 0 && <div className="rt-empty">还没有新增内容</div>}
-                </div>
-              </div>
-            ))}
-          </div>
+    <div className="page overview overview-compact">
+      <section className="panel">
+        <header className="panel-head"><h2>监控状态</h2></header>
+        <table className="overview-table overview-status">
+          <thead><tr><th>平台</th><th>最近完成</th><th>本轮新增</th></tr></thead>
+          <tbody>{(["weibo", "x"] as const).map((platform) => {
+            const [time, count] = rounds?.[platform] ?? [0, 0];
+            return <tr key={platform}>
+              <th scope="row"><i className={running[platform] ? "overview-dot on" : "overview-dot"} />{platform === "weibo" ? "微博" : "X"}</th>
+              <td>{time ? new Date(time * 1000).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : !rounds ? "—" : running[platform] ? "等待首轮完成" : running[platform] === false ? "未运行" : "—"}</td>
+              <td>{time ? `${number(count)} 条` : "—"}</td>
+            </tr>;
+          })}</tbody>
+        </table>
       </section>
-      <StatsPage accounts={accounts} nodes={nodes} traffic={traffic} usage={usage} storage={storage} settings={settings} tombs={tombs} dedupSkipped={dedupSkipped} onOpenTrash={onOpenTrash} embedded />
-      <section className="panel accounts-panel">
+
+      <section className="panel">
         <header className="panel-head">
-          <h2>账号状态</h2>
-          <span className="pill">{accounts.length} 个</span>
-          <div className="spacer" />
-          <button className="link-btn" onClick={() => onGoto("accounts")}>管理</button>
+          <h2>最近新增</h2><div className="spacer" />
+          {pending > 0 && <button className="link-btn" onClick={() => {
+            setShownPosts(posts); setPending(0); scrollRoot.current?.scrollTo({ top: 0 });
+          }}>查看 {pending} 条新内容</button>}
+          <button className="link-btn" onClick={() => onGoto("flow")}>查看全部</button>
         </header>
-        <div className="acct-status">
-          <div className="as-row head">
-            <span>账号</span><span>状态</span><span>已归档</span><span>上次检查</span>
-          </div>
-          {accounts.map((a) => {
-            const count = posts.filter((p) => p.accountId === a.id).length;
-            return (
-              <div className={`as-row ${a.enabled ? "" : "off"}`} key={a.id}>
-                <span className="as-account">
-                  <BloggerName className="as-name" platform={a.platform} uid={a.uid}>{a.name}</BloggerName>
-                  <span className="as-uid">{a.uid}</span>
-                </span>
-                <span><span className={`badge-state ${a.enabled ? "on" : "off"}`}>{a.status === "running" ? "抓取中" : a.enabled ? "启用" : "暂停"}</span></span>
-                <span className="as-num">{count}</span>
-                <span className="as-time">
-                  {a.lastFetch ? a.lastFetch.slice(11, 16) : "—"}
-                  {a.enabled && <button className="as-run" onClick={() => onRunOne(a)} title="单独检查这个账号" disabled={busy}><IconSearch /></button>}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <table className="overview-table overview-recent">
+          <thead><tr><th>时间</th><th>平台</th><th>账号</th><th>内容</th><th>媒体</th></tr></thead>
+          <tbody>{recent.map((p) => <tr key={`${p.platform}:${p.id}`}>
+            <td>{p.time.slice(5, 16)}</td>
+            <td>{p.platform === "x" ? "X" : "微博"}</td>
+            <td title={names.get(p.accountId) ?? p.screenName}>{names.get(p.accountId) ?? p.screenName ?? "—"}</td>
+            <td title={p.text}>{p.url ? <a href={p.url} target="_blank" rel="noreferrer noopener">{p.text.replace(/\s+/g, " ").trim() || "打开原帖"} <IconExternal /></a> : p.text}</td>
+            <td>{mediaLabel(p)}</td>
+          </tr>)}
+          {!recent.length && <tr><td colSpan={5}>还没有新增内容</td></tr>}</tbody>
+        </table>
+      </section>
+
+      <section className="panel overview-totals" aria-label="归档统计">
+        <span>归档 <b>{number(stats.posts)}</b> 条</span>
+        <span>图片 <b>{number(stats.photos)}</b> 张</span>
+        <span>视频 <b>{number(stats.videos)}</b> 个</span>
+        <span>监控账号 <b>{number(stats.enabled)}</b> / {number(stats.total)} 个</span>
+      </section>
+
+      <section className="panel">
+        <header className="panel-head">
+          <h2>存储空间</h2>
+          {storage && <span>媒体归档 {fmtBytes(storage.total)}</span>}
+          <span>{disk ? `磁盘已用 ${fmtBytes(used)} · 剩余 ${fmtBytes(disk.free)}` : "等待磁盘统计"}</span>
+          <div className="spacer" />
+          <button className="link-btn" aria-expanded={details} onClick={() => setDetails(!details)}>{details ? "收起明细" : "查看明细"}</button>
+        </header>
+        {disk && disk.total > 0 && <progress className="overview-disk" aria-label="归档所在磁盘已用空间" max={disk.total} value={used} />}
+        {details && <StatsPage accounts={accounts} nodes={nodes} traffic={traffic} usage={usage} storage={storage} settings={settings} tombs={tombs} dedupSkipped={dedupSkipped} onOpenTrash={onOpenTrash} embedded />}
       </section>
     </div>
   );
 }
-

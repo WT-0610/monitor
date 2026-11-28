@@ -30,6 +30,24 @@ def round_window(window):
         gdi32.DeleteObject(wintypes.HRGN(region))
 
 
+def start_drag(window):
+    from System import Action
+
+    def move():
+        hwnd = wintypes.HWND(window.native.Handle.ToInt64())
+        user32 = ctypes.windll.user32
+        if user32.IsZoomed(hwnd) or not user32.GetAsyncKeyState(1) & 0x8000:
+            return
+        point = wintypes.POINT()
+        if not user32.GetCursorPos(ctypes.byref(point)):
+            return
+        user32.ReleaseCapture()
+        position = (point.x & 0xFFFF) | ((point.y & 0xFFFF) << 16)
+        user32.PostMessageW(hwnd, 0x00A1, 2, wintypes.LPARAM(position))
+
+    window.native.BeginInvoke(Action(move))
+
+
 def open_window(url: str) -> None:
     target = urlsplit(url)
     if target.scheme != "http" or target.netloc != f"127.0.0.1:{target.port}" or target.path not in ("", "/") or target.query or target.fragment:
@@ -50,6 +68,9 @@ def open_window(url: str) -> None:
         background_color="#f5f5f6",
     )
     window.expose(window.minimize, window.maximize, window.restore, window.destroy)
+    def drag_window():
+        start_drag(window)
+    window.expose(drag_window)
     window.events.shown += lambda: round_window(window)
     window.events.resized += lambda width, height: round_window(window)
     assets = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
