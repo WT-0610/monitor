@@ -4,7 +4,9 @@
 
 ## 下载与首次启动
 
-在 [Releases](https://github.com/WT-0610/monitor/releases) 下载对应系统的压缩包。Windows 解压后运行 `OrangeMonitor.exe`；macOS 解压后打开 `OrangeMonitor.app`。首次启动会在浏览器中打开本地界面，引导登录微博或 X。
+Windows 正式安装包为 `OrangeMonitor-Setup.exe`，支持选择安装目录。安装后从开始菜单打开，卸载入口位于 Windows 的「已安装的应用」。卸载保留归档和设置。
+
+在 [Releases](https://github.com/WT-0610/monitor/releases) 下载对应系统的压缩包。Windows 免安装版解压后运行 `OrangeMonitor.exe`；macOS 解压后打开 `OrangeMonitor.app`。首次启动会在浏览器中打开本地界面，引导登录微博或 X。
 
 程序数据写入系统用户目录：
 

@@ -80,6 +80,21 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: Compress-Archive -Path dist/OrangeMonitor -DestinationPath OrangeMonitor-${{ matrix.suffix }}.zip
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6 compiler is missing' }
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.1.0' }
+          & $iscc "/DAppVersion=$version" 'installer\OrangeMonitor.iss'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: OrangeMonitor-Setup
+          path: OrangeMonitor-Setup.exe
+          if-no-files-found: error
       - name: Package macOS
         if: runner.os == 'macOS'
         run: ditto -c -k --sequesterRsrc --keepParent dist/OrangeMonitor.app OrangeMonitor-${{ matrix.suffix }}.zip
@@ -101,4 +116,4 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" OrangeMonitor-*.zip --repo "${GITHUB_REPOSITORY}" --title "OrangeMonitor ${GITHUB_REF_NAME}" --generate-notes
+        run: gh release create "${GITHUB_REF_NAME}" OrangeMonitor-*.zip OrangeMonitor-Setup.exe --repo "${GITHUB_REPOSITORY}" --title "OrangeMonitor ${GITHUB_REF_NAME}" --generate-notes

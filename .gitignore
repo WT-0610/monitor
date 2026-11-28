@@ -12,3 +12,5 @@ backend/config.json
 x-monitor/dist/
 x-monitor/node_modules/
 x-monitor/public/
+
+/OrangeMonitor-Setup.exe
