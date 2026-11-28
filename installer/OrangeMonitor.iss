@@ -14,6 +14,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\OrangeMonitor.exe
+SetupIconFile=orange.ico
 OutputDir=..
 OutputBaseFilename=OrangeMonitor-Setup
 Compression=lzma2
