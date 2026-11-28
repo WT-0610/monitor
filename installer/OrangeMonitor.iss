@@ -8,6 +8,8 @@ AppName=OrangeMonitor
 AppVersion={#AppVersion}
 DefaultDirName={localappdata}\Programs\OrangeMonitor
 DisableDirPage=no
+DefaultGroupName=OrangeMonitor
+UsePreviousGroup=no
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -25,7 +27,7 @@ Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 Source: "..\dist\OrangeMonitor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{userprograms}\OrangeMonitor"; Filename: "{app}\OrangeMonitor.exe"; WorkingDir: "{app}"
+Name: "{group}\OrangeMonitor"; Filename: "{app}\OrangeMonitor.exe"; WorkingDir: "{app}"
 
 [Run]
 Filename: "{app}\OrangeMonitor.exe"; Description: "{cm:LaunchProgram,OrangeMonitor}"; Flags: nowait postinstall skipifsilent
